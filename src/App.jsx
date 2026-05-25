@@ -34,11 +34,16 @@ function daysLeft(fn) {
   return Math.max(0, Math.ceil(diff / (24 * 60 * 60 * 1000)));
 }
 
-function StatusBar({ spent, budget, label, color }) {
+function StatusBar({ spent, budget, label, color, days }) {
   const pct = Math.min((spent / budget) * 100, 100);
   const over = spent > budget;
   const remaining = budget - spent;
+  const overage = spent - budget;
   const status = spent < budget * 0.75 ? "good" : spent < budget ? "caution" : "over";
+
+  // Return-to-budget: what fraction of total spend is covered by the budget (0–100%)
+  // Goal is 100% — meaning spend has come back down to budget. Shows how far you still need to recover.
+  const recoveryPct = over ? Math.round((budget / spent) * 100) : 100;
 
   const colors = {
     good: { bar: color, text: "#2d6a4f", bg: "#d8f3dc" },
@@ -52,7 +57,7 @@ function StatusBar({ spent, budget, label, color }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
         <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6b7280" }}>{label}</span>
         <span style={{ fontSize: 13, color: c.text, fontWeight: 600, background: c.bg, padding: "2px 10px", borderRadius: 20 }}>
-          {over ? `$${(spent - budget).toFixed(0)} over` : `$${remaining.toFixed(0)} left`}
+          {over ? `$${overage.toFixed(0)} over` : `$${remaining.toFixed(0)} left`}
         </span>
       </div>
       <div style={{ background: "#f1f0ec", borderRadius: 6, height: 10, overflow: "hidden" }}>
@@ -62,6 +67,54 @@ function StatusBar({ spent, budget, label, color }) {
         <span style={{ fontSize: 12, color: "#9ca3af" }}>${spent.toFixed(0)} spent</span>
         <span style={{ fontSize: 12, color: "#9ca3af" }}>of ${budget}</span>
       </div>
+
+      {/* ── Return to budget ── */}
+      {over && (
+        <div style={{ marginTop: 10, padding: "12px 14px", background: "#fff1f2", borderRadius: 10, border: "1px solid #fecdd3" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#881337", textTransform: "uppercase", letterSpacing: "0.07em" }}>
+              🎯 Return to budget
+            </span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: "#be123c" }}>
+              {recoveryPct}% recovered
+            </span>
+          </div>
+
+          {/* Bar: fill = within-budget portion; background = overage zone */}
+          <div style={{ position: "relative", background: "#fecdd3", borderRadius: 6, height: 10, overflow: "visible", marginBottom: 6 }}>
+            <div style={{
+              width: `${recoveryPct}%`,
+              background: "#f43f5e",
+              height: "100%",
+              borderRadius: 6,
+              transition: "width 0.4s ease",
+            }} />
+            {/* Target line at 100% */}
+            <div style={{
+              position: "absolute",
+              right: 0,
+              top: -3,
+              bottom: -3,
+              width: 2,
+              background: "#9f1239",
+              borderRadius: 2,
+            }} />
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: "#fda4af" }}>$0 (target)</span>
+            <span style={{ fontSize: 11, color: "#be123c", fontWeight: 600 }}>+${overage.toFixed(0)} over</span>
+          </div>
+
+          <p style={{ margin: 0, fontSize: 12, color: "#9f1239", lineHeight: 1.5 }}>
+            {days === 0
+              ? `Fortnight closed $${overage.toFixed(0)} over budget.`
+              : days === 1
+              ? `Last day — hold at $0 to stop the bleed.`
+              : `Hold at $0/day for the next ${days} days to prevent further overspend.`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -249,8 +302,8 @@ export default function App() {
       <div style={{ padding: "24px" }}>
         {view === "tracker" ? (
           <>
-            <StatusBar spent={foodSpent} budget={FOOD_BUDGET} label="Food & Drink" color="#457b9d" />
-            <StatusBar spent={entSpent} budget={ENT_BUDGET} label="Entertainment" color="#e76f51" />
+            <StatusBar spent={foodSpent} budget={FOOD_BUDGET} label="Food & Drink" color="#457b9d" days={days} />
+            <StatusBar spent={entSpent} budget={ENT_BUDGET} label="Entertainment" color="#e76f51" days={days} />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "24px 0" }}>
               {[
