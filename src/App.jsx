@@ -119,6 +119,75 @@ function StatusBar({ spent, budget, label, color, days }) {
   );
 }
 
+function TotalBudgetSection({ totalSpent, totalBudget, days, rollingAvg }) {
+  const pct = Math.min((totalSpent / totalBudget) * 100, 100);
+  const over = totalSpent > totalBudget;
+  const remaining = totalBudget - totalSpent;
+
+  const daysElapsed = 14 - days;
+  // Project where spend will land by end of fortnight at current daily rate
+  const projected = daysElapsed > 0 ? (totalSpent / daysElapsed) * 14 : totalSpent;
+
+  // Compare projection to rolling average of completed fortnights
+  const hasPast = rollingAvg !== null && rollingAvg > 0;
+  const diff = hasPast ? projected - rollingAvg : null;
+  const better = diff !== null && diff < 0;
+
+  const barColor = over ? "#e63946" : totalSpent > totalBudget * 0.85 ? "#e9c46a" : "#1d3557";
+
+  return (
+    <div style={{ marginBottom: 24, padding: "16px 18px", background: "#fff", borderRadius: 14, border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#374151" }}>
+          Total Budget
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: over ? "#dc2626" : "#374151" }}>
+          ${totalSpent.toFixed(0)} <span style={{ fontWeight: 400, color: "#9ca3af" }}>of ${totalBudget}</span>
+        </span>
+      </div>
+
+      {/* Combined bar */}
+      <div style={{ background: "#f1f0ec", borderRadius: 6, height: 12, overflow: "hidden", marginBottom: 6 }}>
+        <div style={{ width: `${pct}%`, background: barColor, height: "100%", borderRadius: 6, transition: "width 0.4s ease" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+        <span style={{ fontSize: 12, color: "#9ca3af" }}>{over ? `$${(totalSpent - totalBudget).toFixed(0)} over` : `$${remaining.toFixed(0)} left`}</span>
+        <span style={{ fontSize: 12, color: "#9ca3af" }}>food + entertainment</span>
+      </div>
+
+      {/* Speedometer vs Trip Average */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: hasPast ? 12 : 0 }}>
+        <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 12px" }}>
+          <p style={{ margin: "0 0 4px", fontSize: 10, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.07em" }}>Speedometer</p>
+          <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 700, color: over ? "#dc2626" : "#1d3557" }}>
+            ${Math.round(projected)}
+          </p>
+          <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>projected this fn</p>
+        </div>
+        <div style={{ background: "#f9fafb", borderRadius: 10, padding: "10px 12px" }}>
+          <p style={{ margin: "0 0 4px", fontSize: 10, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.07em" }}>Trip average</p>
+          <p style={{ margin: "0 0 2px", fontSize: 20, fontWeight: 700, color: "#374151" }}>
+            {hasPast ? `$${Math.round(rollingAvg)}` : "—"}
+          </p>
+          <p style={{ margin: 0, fontSize: 11, color: "#9ca3af" }}>{hasPast ? "past fortnights" : "no history yet"}</p>
+        </div>
+      </div>
+
+      {/* Trend chip */}
+      {hasPast && diff !== null && (
+        <div style={{ padding: "8px 12px", background: better ? "#d8f3dc" : "#fff7ed", borderRadius: 8, border: `1px solid ${better ? "#b7e4c7" : "#fed7aa"}` }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: better ? "#2d6a4f" : "#9a3412" }}>
+            {better
+              ? `↓ $${Math.abs(diff).toFixed(0)} below your average — trending better`
+              : `↑ $${diff.toFixed(0)} above your average — trending higher than usual`}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function EntryModal({ cat, onSave, onClose }) {
   const [amount, setAmount] = useState("");
   const [merchant, setMerchant] = useState("");
@@ -260,6 +329,14 @@ export default function App() {
   });
   pastFns.sort((a, b) => b.start - a.start);
 
+  // Rolling average: total spend per completed fortnight
+  const pastTotals = pastFns.map(pf =>
+    entries.filter(e => e.fnId === pf.id).reduce((s, e) => s + e.amount, 0)
+  );
+  const rollingAvg = pastTotals.length > 0
+    ? pastTotals.reduce((s, v) => s + v, 0) / pastTotals.length
+    : null;
+
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif", maxWidth: 480, margin: "0 auto", minHeight: "100vh", background: "#fafaf8" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -304,6 +381,13 @@ export default function App() {
           <>
             <StatusBar spent={foodSpent} budget={FOOD_BUDGET} label="Food & Drink" color="#457b9d" days={days} />
             <StatusBar spent={entSpent} budget={ENT_BUDGET} label="Entertainment" color="#e76f51" days={days} />
+
+            <TotalBudgetSection
+              totalSpent={foodSpent + entSpent}
+              totalBudget={FOOD_BUDGET + ENT_BUDGET}
+              days={days}
+              rollingAvg={rollingAvg}
+            />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "24px 0" }}>
               {[
