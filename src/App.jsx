@@ -259,7 +259,8 @@ function EntryModal({ cat, onSave, onClose }) {
   );
 }
 
-function HistoryRow({ fn, entries }) {
+function HistoryRow({ fn, entries, onDelete, isPast }) {
+  const [confirming, setConfirming] = useState(false);
   const food = entries.filter(e => e.cat === "food" && e.fnId === fn.id).reduce((s, e) => s + e.amount, 0);
   const ent = entries.filter(e => e.cat === "entertainment" && e.fnId === fn.id).reduce((s, e) => s + e.amount, 0);
   const foodDelta = food - FOOD_BUDGET;
@@ -270,9 +271,24 @@ function HistoryRow({ fn, entries }) {
     <div style={{ padding: "14px 0", borderBottom: "1px solid #f1f0ec" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <span style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>{fn.label}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: totalDelta > 0 ? "#e63946" : "#2d6a4f" }}>
-          {totalDelta > 0 ? `+$${totalDelta.toFixed(0)} over` : `-$${Math.abs(totalDelta).toFixed(0)} under`}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: totalDelta > 0 ? "#e63946" : "#2d6a4f" }}>
+            {totalDelta > 0 ? `+$${totalDelta.toFixed(0)} over` : `-$${Math.abs(totalDelta).toFixed(0)} under`}
+          </span>
+          {isPast && onDelete && (
+            confirming ? (
+              <button onClick={() => { onDelete(fn.id); setConfirming(false); }}
+                style={{ fontSize: 11, padding: "3px 8px", background: "#fee2e2", color: "#991b1b", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
+                Confirm
+              </button>
+            ) : (
+              <button onClick={() => setConfirming(true)}
+                style={{ fontSize: 15, background: "none", border: "none", cursor: "pointer", color: "#d1d5db", padding: "0 2px" }}>
+                ×
+              </button>
+            )
+          )}
+        </div>
       </div>
       <div style={{ fontSize: 12, color: "#9ca3af" }}>
         {formatDate(fn.start)} – {formatDate(fn.end)} &nbsp;·&nbsp;
@@ -304,6 +320,10 @@ export default function App() {
   const remove = id => {
     setEntries(prev => prev.filter(e => e.id !== id));
     setDeleteConfirm(null);
+  };
+
+  const deleteFortnight = fnId => {
+    setEntries(prev => prev.filter(e => e.fnId !== fnId));
   };
 
   const currentEntries = entries.filter(e => e.fnId === fn.id);
@@ -444,11 +464,11 @@ export default function App() {
           <>
             <h3 style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af", letterSpacing: "0.08em", textTransform: "uppercase", margin: "0 0 4px" }}>Fortnight history</h3>
             <p style={{ fontSize: 13, color: "#9ca3af", margin: "0 0 20px" }}>Budget: Food $400 · Entertainment $300</p>
-            <HistoryRow fn={fn} entries={entries} />
+            <HistoryRow fn={fn} entries={entries} isPast={false} />
             {pastFns.length === 0 && (
               <p style={{ color: "#9ca3af", fontSize: 14, marginTop: 20, textAlign: "center" }}>No history yet — past fortnights will appear here.</p>
             )}
-            {pastFns.map(pf => <HistoryRow key={pf.id} fn={pf} entries={entries} />)}
+            {pastFns.map(pf => <HistoryRow key={pf.id} fn={pf} entries={entries} isPast onDelete={deleteFortnight} />)}
           </>
         )}
       </div>
